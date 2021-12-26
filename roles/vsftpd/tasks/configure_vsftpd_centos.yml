@@ -1,0 +1,70 @@
+- name: Ensure that vsftpd is installed same 4 policycoreutils-python-utils for selinux control
+  yum:
+    name: 
+      - vsftpd
+      - policycoreutils-python-utils 
+    state: present
+
+- name: Ensure that vsftpd is enabled and started
+  systemd:
+    name: vsftpd
+    state: started
+    enabled: yes
+
+- name: configure firewalld for ftp
+  firewalld:
+    port: "{{ item }}"
+    permanent: yes
+    state: enabled
+  with_items: ["21/tcp", "20/tcp"]
+
+- name: configure firewalld for ssh
+  firewalld:
+    service: ssh
+    permanent: yes
+    state: enabled
+
+- name: enable firewalld and reload it
+  systemd:
+    name: firewalld
+    state: reloaded
+    enabled: yes
+- name: prepare dirs
+  file:
+    name: "{{ item }}"
+    state: directory
+    mode: 0777
+    owner: ftp
+    group: ftp
+  with_items: ["{{ ftp_pub_dir }}", "{{ ftp_upload_dir }}"]
+
+- name: gen conf file
+  template:
+    src: templates/vsftpd.conf
+    dest: /etc/vsftpd/vsftpd.conf
+    owner: root
+    group: root
+    mode: 0740
+- name: restart vsftpd for apply settings
+  systemd:
+   name: vsftpd
+   state: restarted
+
+- name: configure selinux
+  seboolean:
+    name: "{{ item }}"
+    state: yes
+    persistent: yes
+  with_items: ["ftpd_anon_write", "tftp_home_dir", "ftpd_use_passive_mode", "tftp_anon_write" ]
+- name: configure secontecst
+  sefcontext:
+   target: '{{ ftp_upload_dir }}(/.*)?'
+   setype: public_content_rw_t
+   state: present
+- name: Apply new SELinux file context to filesystem
+  ansible.builtin.command: restorecon -R -v "{{ ftp_upload_dir }}"
+
+
+ 
+    
+    

@@ -1,0 +1,3 @@
+- { include: configure_httpd_centos.yml, become: yes, when: ansible_distribution == "CentOS" } 
+  
+  
